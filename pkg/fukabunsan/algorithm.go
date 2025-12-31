@@ -34,16 +34,48 @@ func init() {
 func (lb *LoadBalancer) LBAlgorithm(lbRequest *LBRequest) *LBResponse {
 	bonalib.Info("LBAlgorithm", "targets", lbRequest.Targets)
 
-	// 1️⃣ Safety check
+	// Safety check
 	if lbRequest == nil || len(lbRequest.Targets) == 0 {
 		return nil
 	}
 
-	// 2️⃣ Random chọn pod
+	// Random chọn pod
 	index := rand.Intn(len(lbRequest.Targets))
 	target := lbRequest.Targets[index]
 
-	// 3️⃣ Trả response
+	//per counter
+	lb.mu.Lock()
+	lb.podCount[target]++
+	lb.inFlight[target]++
+	total := lb.podCount[target]
+	inflight := lb.inFlight[target]
+	lb.mu.Unlock()
+
+	bonalib.Info(
+		"LBSelect",
+		"pod", target,
+		"total", total,
+		"in_flight", inflight,
+	)
+
+	// 🔥 TTL giả lập: sau 2s coi như request xong
+	go func(pod string) {
+		time.Sleep(2 * time.Second)
+
+		lb.mu.Lock()
+		lb.inFlight[pod]--
+		after := lb.inFlight[pod]
+		lb.mu.Unlock()
+
+		bonalib.Info(
+			"LBFinish",
+			"pod", pod,
+			"in_flight", after,
+		)
+	}(target)
+
+ 
+	// Trả response
 	ret := &LBResponse{
 		Target:  target,
 		Headers: make([]*LBResponse_HeaderSchema, 0),

@@ -2,6 +2,7 @@ package fukabunsan // 負荷分散 - ふかぶんさん - Load Balancing
 
 import (
 	"reflect"
+	"sync"
 
 	"github.com/bonavadeur/katyusha/pkg/bonalib"
 	"github.com/bonavadeur/katyusha/pkg/hashi"
@@ -9,10 +10,16 @@ import (
 
 type LoadBalancer struct {
 	lbBridge *hashi.Hashi
+	//thêm 
+	podCount map[string]uint64
+	inFlight map[string]uint64
+	mu       sync.Mutex
 }
 
 func NewLoadBalancer() *LoadBalancer {
 	newLoadBalancerServer := &LoadBalancer{}
+	newLoadBalancerServer.podCount = make(map[string]uint64)
+	newLoadBalancerServer.inFlight = make(map[string]uint64)
 
 	newLoadBalancerServer.lbBridge = hashi.NewHashi(
 		"lbBridge",
